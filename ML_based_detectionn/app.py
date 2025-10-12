@@ -5,6 +5,21 @@ from flask import Flask, request, render_template, redirect, url_for, flash, jso
 import joblib
 from feature_extraction import extract_features
 
+# Import optional modules for quarantine and file cleaning
+try:
+    import quarantine_manager
+    QUARANTINE_AVAILABLE = True
+except ImportError:
+    QUARANTINE_AVAILABLE = False
+    logging.warning("Quarantine manager not available")
+
+try:
+    import file_cleaner
+    FILE_CLEANER_AVAILABLE = True
+except ImportError:
+    FILE_CLEANER_AVAILABLE = False
+    logging.warning("File cleaner not available")
+
 # Load environment variables
 load_dotenv()
 
@@ -295,6 +310,9 @@ def analyze():
 def quarantine():
     """Quarantine a malicious file"""
     try:
+        if not QUARANTINE_AVAILABLE:
+            return jsonify({'success': False, 'message': 'Quarantine feature not available'})
+        
         data = request.get_json()
         file_path = data.get('file_path')
         threat_info = data.get('threat_info', {})
@@ -315,6 +333,9 @@ def quarantine():
 def clean():
     """Clean a malicious file"""
     try:
+        if not FILE_CLEANER_AVAILABLE:
+            return jsonify({'success': False, 'message': 'File cleaning feature not available'})
+        
         data = request.get_json()
         file_path = data.get('file_path')
         file_type = data.get('file_type')
@@ -391,6 +412,9 @@ def quarantine_manager_page():
 def restore_quarantine():
     """Restore a quarantined file"""
     try:
+        if not QUARANTINE_AVAILABLE:
+            return jsonify({'success': False, 'message': 'Quarantine feature not available'})
+        
         data = request.get_json()
         quarantine_id = data.get('quarantine_id')
         
@@ -406,6 +430,9 @@ def restore_quarantine():
 def delete_quarantine():
     """Permanently delete a quarantined file"""
     try:
+        if not QUARANTINE_AVAILABLE:
+            return jsonify({'success': False, 'message': 'Quarantine feature not available'})
+        
         data = request.get_json()
         quarantine_id = data.get('quarantine_id')
         
@@ -421,6 +448,9 @@ def delete_quarantine():
 def download_cleaned(filename):
     """Download a cleaned file"""
     try:
+        if not FILE_CLEANER_AVAILABLE:
+            return "File cleaner not available", 404
+        
         file_path = os.path.join(file_cleaner.cleaned_dir, filename)
         if os.path.exists(file_path):
             return send_file(file_path, as_attachment=True)
