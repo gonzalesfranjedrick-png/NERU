@@ -30,8 +30,8 @@ logging.basicConfig(
 UPLOAD_FOLDER = app.config['UPLOAD_FOLDER']
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Allowed file extensions
-ALLOWED_EXTENSIONS = {'exe', 'dll', 'txt'}
+# Allowed file extensions (restricted to executables for ML analysis)
+ALLOWED_EXTENSIONS = {'exe', 'dll'}
 
 # Load the ML model and scaler with error handling
 try:
@@ -248,7 +248,8 @@ def analyze():
             
             # Apply feature scaling if scaler is available
             if scaler is not None:
-                features_scaled = scaler.transform(features)
+                # Ensure numpy array without column names to silence sklearn warning
+                features_scaled = scaler.transform(features.values)
                 logging.info("Features scaled for improved accuracy")
             else:
                 features_scaled = features
