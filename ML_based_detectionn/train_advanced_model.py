@@ -5,6 +5,8 @@ NeuroShield - Developed by F.J.G
 
 This script trains an optimized ensemble model with hyperparameter tuning
 to achieve higher accuracy than the basic Random Forest model.
+
+IMPORTANT: This version uses the CORRECT 23 features from feature_extraction.py
 """
 
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier, AdaBoostClassifier
@@ -17,7 +19,6 @@ import numpy as np
 import pandas as pd
 import os
 import sys
-from feature_extraction import extract_features
 
 print("=" * 80)
 print("NEUROSHIELD - ADVANCED MODEL TRAINING")
@@ -26,7 +27,37 @@ print("Developed by F.J.G")
 print("=" * 80)
 print()
 
-# Create synthetic training data with better distribution
+# CRITICAL: Use the EXACT 23 features from feature_extraction.py in the SAME ORDER
+FEATURE_NAMES = [
+    'MajorLinkerVersion',
+    'MinorOperatingSystemVersion', 
+    'MajorSubsystemVersion',
+    'SizeOfStackReserve',
+    'TimeDateStamp',
+    'MajorOperatingSystemVersion',
+    'Characteristics',
+    'ImageBase',
+    'Subsystem',
+    'MinorImageVersion',
+    'MinorSubsystemVersion',
+    'SizeOfInitializedData',
+    'DllCharacteristics',
+    'DirectoryEntryExport',
+    'ImageDirectoryEntryExport',
+    'CheckSum',
+    'DirectoryEntryImportSize',
+    'SectionMaxChar',
+    'MajorImageVersion',
+    'AddressOfEntryPoint',
+    'SectionMinEntropy',
+    'SizeOfHeaders',
+    'SectionMinVirtualsize'
+]
+
+print(f"Using {len(FEATURE_NAMES)} features from feature_extraction.py")
+print()
+
+# Create synthetic training data with REALISTIC values
 print("Step 1: Creating enhanced training dataset...")
 print("-" * 80)
 
@@ -36,67 +67,75 @@ np.random.seed(42)
 n_malware = 500
 n_benign = 500
 
-# Malware samples - with more realistic characteristics
-malware_features = np.random.randn(n_malware, 23)
-# Add malware-specific patterns
-malware_features[:, 0] = np.random.uniform(1300000000, 1700000000, n_malware)  # TimeDateStamp
-malware_features[:, 1] = np.random.uniform(1000, 100000, n_malware)  # Machine
-malware_features[:, 2] = np.random.uniform(2, 15, n_malware)  # NumberOfSections
-malware_features[:, 3] = np.random.uniform(8192, 65536, n_malware)  # SizeOfOptionalHeader
-malware_features[:, 4] = np.random.uniform(0, 50000, n_malware)  # Characteristics
-malware_features[:, 5] = np.random.uniform(1000000, 10000000, n_malware)  # SizeOfCode
-malware_features[:, 6] = np.random.uniform(500000, 5000000, n_malware)  # SizeOfInitializedData
-malware_features[:, 7] = np.random.uniform(0, 100000, n_malware)  # SizeOfUninitializedData
-malware_features[:, 8] = np.random.uniform(4096, 65536, n_malware)  # AddressOfEntryPoint
-malware_features[:, 9] = np.random.uniform(4096, 16384, n_malware)  # BaseOfCode
-malware_features[:, 10] = np.random.uniform(4096, 65536, n_malware)  # BaseOfData
-malware_features[:, 11] = np.random.uniform(400000, 10000000, n_malware)  # ImageBase
-malware_features[:, 12] = np.random.uniform(4096, 65536, n_malware)  # SectionAlignment
-malware_features[:, 13] = np.random.uniform(512, 4096, n_malware)  # FileAlignment
-malware_features[:, 14] = np.random.uniform(5, 10, n_malware)  # MajorOperatingSystemVersion
-malware_features[:, 15] = np.random.uniform(0, 2, n_malware)  # MinorOperatingSystemVersion
-malware_features[:, 16] = np.random.uniform(1000000, 20000000, n_malware)  # SizeOfImage
-malware_features[:, 17] = np.random.uniform(512, 4096, n_malware)  # SizeOfHeaders
-malware_features[:, 18] = np.random.uniform(0, 65535, n_malware)  # CheckSum
-malware_features[:, 19] = np.random.choice([2, 3], n_malware)  # Subsystem
-malware_features[:, 20] = np.random.uniform(6.0, 7.9, n_malware)  # SectionMaxEntropy (high for malware)
-malware_features[:, 21] = np.random.uniform(0.0, 2.0, n_malware)  # SectionMinEntropy
-malware_features[:, 22] = np.random.uniform(4.0, 7.5, n_malware)  # SectionAvgEntropy (higher for malware)
+# Malware samples - with realistic PE characteristics that indicate malware
+print("Generating malware samples with realistic characteristics...")
+malware_data = pd.DataFrame({
+    'MajorLinkerVersion': np.random.randint(8, 15, n_malware),
+    'MinorOperatingSystemVersion': np.random.randint(0, 10, n_malware),
+    'MajorSubsystemVersion': np.random.randint(4, 11, n_malware),
+    'SizeOfStackReserve': np.random.randint(500000, 5000000, n_malware),  # Larger for malware
+    'TimeDateStamp': np.random.randint(1300000000, 1700000000, n_malware),
+    'MajorOperatingSystemVersion': np.random.randint(5, 11, n_malware),
+    'Characteristics': np.random.randint(20000, 65535, n_malware),  # Higher characteristics
+    'ImageBase': np.random.choice([4194304, 65536, 268435456], n_malware),
+    'Subsystem': np.random.choice([2, 3], n_malware),  # GUI or Console
+    'MinorImageVersion': np.random.randint(0, 10, n_malware),
+    'MinorSubsystemVersion': np.random.randint(0, 10, n_malware),
+    'SizeOfInitializedData': np.random.randint(100000, 5000000, n_malware),  # Larger
+    'DllCharacteristics': np.random.randint(20000, 65535, n_malware),
+    'DirectoryEntryExport': np.random.choice([0, 1], n_malware, p=[0.7, 0.3]),
+    'ImageDirectoryEntryExport': np.random.randint(0, 50000, n_malware),
+    'CheckSum': np.random.randint(0, 2000000, n_malware),
+    'DirectoryEntryImportSize': np.random.randint(1000, 100000, n_malware),  # Larger
+    'SectionMaxChar': np.random.randint(4, 10, n_malware),  # More sections
+    'MajorImageVersion': np.random.randint(0, 10, n_malware),
+    'AddressOfEntryPoint': np.random.randint(5000, 200000, n_malware),  # Wider range
+    'SectionMinEntropy': np.random.uniform(5.0, 7.9, n_malware),  # HIGH entropy (packed/encrypted)
+    'SizeOfHeaders': np.random.randint(512, 4096, n_malware),
+    'SectionMinVirtualsize': np.random.randint(1000, 100000, n_malware)
+})
 
-# Benign samples - with different characteristics
-benign_features = np.random.randn(n_benign, 23)
-benign_features[:, 0] = np.random.uniform(1000000000, 1600000000, n_benign)  # TimeDateStamp
-benign_features[:, 1] = np.random.uniform(332, 34404, n_benign)  # Machine
-benign_features[:, 2] = np.random.uniform(2, 8, n_benign)  # NumberOfSections (fewer)
-benign_features[:, 3] = np.random.uniform(224, 240, n_benign)  # SizeOfOptionalHeader
-benign_features[:, 4] = np.random.uniform(0, 10000, n_benign)  # Characteristics
-benign_features[:, 5] = np.random.uniform(500000, 5000000, n_benign)  # SizeOfCode
-benign_features[:, 6] = np.random.uniform(100000, 1000000, n_benign)  # SizeOfInitializedData
-benign_features[:, 7] = np.random.uniform(0, 10000, n_benign)  # SizeOfUninitializedData
-benign_features[:, 8] = np.random.uniform(1000, 50000, n_benign)  # AddressOfEntryPoint
-benign_features[:, 9] = np.random.uniform(4096, 8192, n_benign)  # BaseOfCode
-benign_features[:, 10] = np.random.uniform(65536, 131072, n_benign)  # BaseOfData
-benign_features[:, 11] = np.random.uniform(400000, 4000000, n_benign)  # ImageBase
-benign_features[:, 12] = np.random.uniform(4096, 8192, n_benign)  # SectionAlignment
-benign_features[:, 13] = np.random.uniform(512, 512, n_benign)  # FileAlignment
-benign_features[:, 14] = np.random.uniform(5, 6, n_benign)  # MajorOperatingSystemVersion
-benign_features[:, 15] = np.random.uniform(0, 1, n_benign)  # MinorOperatingSystemVersion
-benign_features[:, 16] = np.random.uniform(500000, 10000000, n_benign)  # SizeOfImage
-benign_features[:, 17] = np.random.uniform(512, 1024, n_benign)  # SizeOfHeaders
-benign_features[:, 18] = np.random.uniform(0, 65535, n_benign)  # CheckSum
-benign_features[:, 19] = np.random.choice([2, 3], n_benign)  # Subsystem
-benign_features[:, 20] = np.random.uniform(2.0, 6.5, n_benign)  # SectionMaxEntropy (lower for benign)
-benign_features[:, 21] = np.random.uniform(0.0, 1.5, n_benign)  # SectionMinEntropy
-benign_features[:, 22] = np.random.uniform(2.0, 5.5, n_benign)  # SectionAvgEntropy (lower for benign)
+# Benign samples - with typical safe PE characteristics
+print("Generating benign samples with realistic characteristics...")
+benign_data = pd.DataFrame({
+    'MajorLinkerVersion': np.random.randint(8, 15, n_benign),
+    'MinorOperatingSystemVersion': np.random.randint(0, 10, n_benign),
+    'MajorSubsystemVersion': np.random.randint(4, 11, n_benign),
+    'SizeOfStackReserve': np.random.randint(100000, 2000000, n_benign),  # Smaller
+    'TimeDateStamp': np.random.randint(1000000000, 1600000000, n_benign),
+    'MajorOperatingSystemVersion': np.random.randint(5, 11, n_benign),
+    'Characteristics': np.random.randint(0, 20000, n_benign),  # Lower characteristics
+    'ImageBase': np.random.choice([4194304, 65536], n_benign),
+    'Subsystem': np.random.choice([2, 3], n_benign),
+    'MinorImageVersion': np.random.randint(0, 10, n_benign),
+    'MinorSubsystemVersion': np.random.randint(0, 10, n_benign),
+    'SizeOfInitializedData': np.random.randint(10000, 1000000, n_benign),  # Smaller
+    'DllCharacteristics': np.random.randint(0, 20000, n_benign),
+    'DirectoryEntryExport': np.random.choice([0, 1], n_benign, p=[0.8, 0.2]),
+    'ImageDirectoryEntryExport': np.random.randint(0, 10000, n_benign),
+    'CheckSum': np.random.randint(0, 1000000, n_benign),
+    'DirectoryEntryImportSize': np.random.randint(100, 50000, n_benign),  # Smaller
+    'SectionMaxChar': np.random.randint(2, 6, n_benign),  # Fewer sections
+    'MajorImageVersion': np.random.randint(0, 10, n_benign),
+    'AddressOfEntryPoint': np.random.randint(1000, 50000, n_benign),  # Narrower range
+    'SectionMinEntropy': np.random.uniform(0.0, 5.0, n_benign),  # LOW entropy (not packed)
+    'SizeOfHeaders': np.random.randint(400, 2048, n_benign),
+    'SectionMinVirtualsize': np.random.randint(500, 50000, n_benign)
+})
 
 # Combine datasets
-X = np.vstack([malware_features, benign_features])
-y = np.hstack([np.ones(n_malware), np.zeros(n_benign)])
+X = pd.concat([malware_data, benign_data], ignore_index=True)
+y = pd.Series([1]*n_malware + [0]*n_benign)
+
+# Verify we have exactly 23 features
+assert X.shape[1] == 23, f"Expected 23 features, got {X.shape[1]}"
+assert list(X.columns) == FEATURE_NAMES, "Feature names don't match!"
 
 print(f"✅ Dataset created: {len(X)} samples")
 print(f"   - Malware samples: {n_malware}")
 print(f"   - Benign samples: {n_benign}")
 print(f"   - Features per sample: 23")
+print(f"   - Feature names validated: ✅")
 print()
 
 # Split data
@@ -232,20 +271,12 @@ print()
 # Feature importance (from Random Forest component)
 print("Top 10 Most Important Features:")
 print("-" * 80)
-feature_names = [
-    'TimeDateStamp', 'Machine', 'NumberOfSections', 'SizeOfOptionalHeader',
-    'Characteristics', 'SizeOfCode', 'SizeOfInitializedData', 'SizeOfUninitializedData',
-    'AddressOfEntryPoint', 'BaseOfCode', 'BaseOfData', 'ImageBase',
-    'SectionAlignment', 'FileAlignment', 'MajorOperatingSystemVersion',
-    'MinorOperatingSystemVersion', 'SizeOfImage', 'SizeOfHeaders',
-    'CheckSum', 'Subsystem', 'SectionMaxEntropy', 'SectionMinEntropy', 'SectionAvgEntropy'
-]
 
 rf_importances = ensemble.estimators_[0].feature_importances_
 top_indices = np.argsort(rf_importances)[::-1][:10]
 
 for i, idx in enumerate(top_indices, 1):
-    print(f"  {i:2d}. {feature_names[idx]:30s} {rf_importances[idx]:.4f}")
+    print(f"  {i:2d}. {FEATURE_NAMES[idx]:30s} {rf_importances[idx]:.4f}")
 print()
 
 # Save the advanced model and scaler
@@ -265,6 +296,23 @@ print(f"✅ Advanced ensemble model saved: {model_path}")
 print(f"✅ Feature scaler saved: {scaler_path}")
 print()
 
+# Verify saved model
+print("Step 7: Verifying saved model...")
+print("-" * 80)
+loaded_model = joblib.load(model_path)
+loaded_scaler = joblib.load(scaler_path)
+
+# Test prediction with loaded model
+test_sample = X_test.iloc[0:1]
+test_sample_scaled = loaded_scaler.transform(test_sample)
+test_pred = loaded_model.predict(test_sample_scaled)
+test_proba = loaded_model.predict_proba(test_sample_scaled)
+
+print(f"✅ Model loaded successfully")
+print(f"✅ Scaler loaded successfully")
+print(f"✅ Test prediction works: {test_pred[0]} (confidence: {max(test_proba[0])*100:.1f}%)")
+print()
+
 # Summary
 print("=" * 80)
 print("TRAINING COMPLETE - ADVANCED MODEL SUMMARY")
@@ -273,7 +321,7 @@ print()
 print(f"  Model Type: Ensemble (Random Forest + Gradient Boosting + AdaBoost)")
 print(f"  Training Samples: {len(X_train)}")
 print(f"  Test Samples: {len(X_test)}")
-print(f"  Features: 23")
+print(f"  Features: 23 (MATCHING feature_extraction.py)")
 print()
 print(f"  ✅ Cross-Validation Accuracy: {cv_scores.mean()*100:.2f}% (±{cv_scores.std()*100:.2f}%)")
 print(f"  ✅ Test Set Accuracy: {accuracy*100:.2f}%")

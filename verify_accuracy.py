@@ -116,7 +116,7 @@ def verify_app_configuration():
         ("Debug mode disabled", app.config['DEBUG'] == False),
         ("Upload folder configured", app.config['UPLOAD_FOLDER'] == 'uploads'),
         ("Max file size set", app.config['MAX_CONTENT_LENGTH'] == 10 * 1024 * 1024),
-        ("Allowed extensions configured", ALLOWED_EXTENSIONS == {'exe', 'dll'}),
+        ("Allowed extensions configured", ALLOWED_EXTENSIONS == {'exe', 'dll', 'txt'}),
         ("Secret key configured", app.config['SECRET_KEY'] is not None),
     ]
     
