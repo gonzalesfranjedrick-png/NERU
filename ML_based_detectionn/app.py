@@ -1,9 +1,23 @@
 import os
 import logging
 from dotenv import load_dotenv
-from flask import Flask, request, render_template, redirect, url_for, flash
+from flask import Flask, request, render_template, redirect, url_for, flash, jsonify, send_file
 import joblib
 from feature_extraction import extract_features
+
+# Import quarantine and file cleaning modules
+try:
+    from quarantine_manager import QuarantineManager
+    quarantine_manager = QuarantineManager()
+except ImportError:
+    quarantine_manager = None
+    logging.warning("QuarantineManager not available")
+
+try:
+    import file_cleaner
+except ImportError:
+    file_cleaner = None
+    logging.warning("FileCleaner not available")
 
 # Load environment variables
 load_dotenv()
@@ -295,6 +309,9 @@ def analyze():
 def quarantine():
     """Quarantine a malicious file"""
     try:
+        if quarantine_manager is None:
+            return jsonify({'success': False, 'message': 'Quarantine system not available'})
+            
         data = request.get_json()
         file_path = data.get('file_path')
         threat_info = data.get('threat_info', {})
@@ -315,6 +332,9 @@ def quarantine():
 def clean():
     """Clean a malicious file"""
     try:
+        if file_cleaner is None:
+            return jsonify({'success': False, 'message': 'File cleaning system not available'})
+            
         data = request.get_json()
         file_path = data.get('file_path')
         file_type = data.get('file_type')
@@ -373,6 +393,12 @@ def performance_page():
 def quarantine_manager_page():
     """Show quarantine management page"""
     try:
+        if quarantine_manager is None:
+            return render_template('quarantine.html', 
+                                 files=[], 
+                                 stats={},
+                                 error="Quarantine system not available")
+                                 
         quarantined_files = quarantine_manager.list_quarantined_files()
         stats = quarantine_manager.get_quarantine_stats()
         
@@ -391,6 +417,9 @@ def quarantine_manager_page():
 def restore_quarantine():
     """Restore a quarantined file"""
     try:
+        if quarantine_manager is None:
+            return jsonify({'success': False, 'message': 'Quarantine system not available'})
+            
         data = request.get_json()
         quarantine_id = data.get('quarantine_id')
         
@@ -406,6 +435,9 @@ def restore_quarantine():
 def delete_quarantine():
     """Permanently delete a quarantined file"""
     try:
+        if quarantine_manager is None:
+            return jsonify({'success': False, 'message': 'Quarantine system not available'})
+            
         data = request.get_json()
         quarantine_id = data.get('quarantine_id')
         
@@ -421,6 +453,9 @@ def delete_quarantine():
 def download_cleaned(filename):
     """Download a cleaned file"""
     try:
+        if file_cleaner is None:
+            return "File cleaning system not available", 503
+            
         file_path = os.path.join(file_cleaner.cleaned_dir, filename)
         if os.path.exists(file_path):
             return send_file(file_path, as_attachment=True)
