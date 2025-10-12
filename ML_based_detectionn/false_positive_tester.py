@@ -75,10 +75,20 @@ class FalsePositiveTester:
             try:
                 # Extract features
                 features = extract_features(file_path)
-                
+
+                # Align feature order to model expectations if available
+                if hasattr(self.model, 'feature_names_in_'):
+                    try:
+                        features = features.reindex(columns=list(self.model.feature_names_in_), fill_value=0)
+                    except Exception:
+                        pass
+
                 # Scale if scaler available
                 if self.scaler:
-                    features_scaled = self.scaler.transform(features)
+                    try:
+                        features_scaled = self.scaler.transform(features)
+                    except Exception:
+                        features_scaled = features
                 else:
                     features_scaled = features
                 

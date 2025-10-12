@@ -110,13 +110,18 @@ def verify_app_configuration():
     print("APPLICATION CONFIGURATION VERIFICATION")
     print("="*60)
     
-    from app import app, ALLOWED_EXTENSIONS, model
+    # Import app from ML_based_detectionn
+    try:
+        from app import app, ALLOWED_EXTENSIONS, model
+    except Exception as e:
+        print(f"⚠️  Could not import app module: {e}")
+        return False
     
     checks = [
         ("Debug mode disabled", app.config['DEBUG'] == False),
         ("Upload folder configured", app.config['UPLOAD_FOLDER'] == 'uploads'),
         ("Max file size set", app.config['MAX_CONTENT_LENGTH'] == 10 * 1024 * 1024),
-        ("Allowed extensions configured", ALLOWED_EXTENSIONS == {'exe', 'dll'}),
+        ("Allowed extensions configured", ALLOWED_EXTENSIONS == {'exe', 'dll', 'txt', 'pdf'}),
         ("Secret key configured", app.config['SECRET_KEY'] is not None),
     ]
     
@@ -128,10 +133,16 @@ def verify_app_configuration():
             print(f"❌ {check_name}")
             all_passed = False
     
-    if model is None:
-        print("⚠️  Model not loaded (this is expected - train and save model to ML_model/malwareclassifier-V2.pkl)")
-    else:
-        print("✅ Model loaded successfully")
+    try:
+        if model is None:
+            print("⚠️  Model not loaded (train and save model to ML_model/malwareclassifier-V2.pkl)")
+        else:
+            print("✅ Model loaded successfully")
+            # Optional: check feature names for alignment
+            if hasattr(model, 'feature_names_in_'):
+                print(f"✅ Model expects {len(model.feature_names_in_)} features")
+    except Exception as e:
+        print(f"⚠️  Could not inspect model: {e}")
     
     print("="*60)
     return all_passed

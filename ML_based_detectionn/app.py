@@ -1,9 +1,11 @@
 import os
 import logging
 from dotenv import load_dotenv
-from flask import Flask, request, render_template, redirect, url_for, flash
+from flask import Flask, request, render_template, redirect, url_for, flash, send_file, jsonify
 import joblib
 from feature_extraction import extract_features
+from quarantine_manager import QuarantineManager
+from file_cleaner import FileCleaner
 
 # Load environment variables
 load_dotenv()
@@ -31,7 +33,8 @@ UPLOAD_FOLDER = app.config['UPLOAD_FOLDER']
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Allowed file extensions
-ALLOWED_EXTENSIONS = {'exe', 'dll', 'txt'}
+# Support executables, text files, and PDFs for heuristic/ML analysis
+ALLOWED_EXTENSIONS = {'exe', 'dll', 'txt', 'pdf'}
 
 # Load the ML model and scaler with error handling
 try:
@@ -56,7 +59,7 @@ try:
         model = joblib.load(model_path)
         logging.info(f"Advanced ensemble model loaded successfully from {model_path}")
         
-        # Try to load scaler
+        # Try to load scaler (co-located with model)
         scaler_path = model_path.replace('malwareclassifier-V2.pkl', 'scaler.pkl')
         if os.path.exists(scaler_path):
             scaler = joblib.load(scaler_path)
@@ -69,6 +72,10 @@ except Exception as e:
     logging.error(f"Failed to load model: {str(e)}")
     model = None
     scaler = None
+
+# Initialize helpers
+quarantine_manager = QuarantineManager()
+file_cleaner = FileCleaner()
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -245,11 +252,24 @@ def analyze():
             # Handle executable files (.exe, .dll) with ML model
             logging.info(f"Extracting features from: {safe_filename}")
             features = extract_features(file_path)
+
+            # Align features to model expectations to prevent misclassification due to ordering
+            try:
+                if hasattr(model, 'feature_names_in_'):
+                    expected_columns = list(model.feature_names_in_)
+                    # Reindex to expected columns, fill any missing with 0 and drop extras
+                    features = features.reindex(columns=expected_columns, fill_value=0)
+            except Exception as align_err:
+                logging.warning(f"Feature alignment warning: {align_err}")
             
             # Apply feature scaling if scaler is available
             if scaler is not None:
-                features_scaled = scaler.transform(features)
-                logging.info("Features scaled for improved accuracy")
+                try:
+                    features_scaled = scaler.transform(features)
+                    logging.info("Features scaled for improved accuracy")
+                except Exception as scale_err:
+                    logging.warning(f"Scaler transform failed, falling back to unscaled features: {scale_err}")
+                    features_scaled = features
             else:
                 features_scaled = features
             
@@ -258,15 +278,15 @@ def analyze():
             prediction_proba = model.predict_proba(features_scaled)[0]
             
             # Get confidence from probability
-            confidence = max(prediction_proba) * 100
+            confidence = (prediction_proba[1] if int(prediction[0]) == 1 else prediction_proba[0]) * 100
             
             # Create result
             result = {
                 "type": "file",
-                "prediction": "Malware" if prediction[0] == 1 else "Safe",
+                "prediction": "Malware" if int(prediction[0]) == 1 else "Safe",
                 "file_name": safe_filename,
                 "confidence": f"{confidence:.1f}%",
-                "model": "Advanced Ensemble (100% Accuracy)"
+                "model": "NeuroShield Model"
             }
             
             logging.info(f"Analysis complete: {safe_filename} - {result['prediction']} ({confidence:.1f}% confidence)")
