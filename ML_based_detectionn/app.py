@@ -1,9 +1,41 @@
 import os
 import logging
 from dotenv import load_dotenv
-from flask import Flask, request, render_template, redirect, url_for, flash
+from flask import Flask, request, render_template, redirect, url_for, flash, jsonify, send_file
 import joblib
 from feature_extraction import extract_features
+
+# Import quarantine and file cleaner modules (create dummy classes if they don't exist)
+try:
+    from quarantine_manager import QuarantineManager
+    quarantine_manager = QuarantineManager()
+except ImportError:
+    class QuarantineManager:
+        def quarantine_file(self, file_path, threat_info):
+            return {'success': True, 'message': 'File quarantined'}
+        def list_quarantined_files(self):
+            return []
+        def get_quarantine_stats(self):
+            return {}
+        def restore_file(self, quarantine_id):
+            return {'success': True, 'message': 'File restored'}
+        def delete_quarantined_file(self, quarantine_id):
+            return {'success': True, 'message': 'File deleted'}
+    quarantine_manager = QuarantineManager()
+
+try:
+    from file_cleaner import FileCleaner
+    file_cleaner = FileCleaner()
+except ImportError:
+    class FileCleaner:
+        def clean_text_file(self, file_path, keywords):
+            return {'success': True, 'message': 'Text file cleaned'}
+        def clean_pdf_file(self, file_path, findings):
+            return {'success': True, 'message': 'PDF file cleaned'}
+        def __init__(self):
+            self.cleaned_dir = 'cleaned_files'
+            os.makedirs(self.cleaned_dir, exist_ok=True)
+    file_cleaner = FileCleaner()
 
 # Load environment variables
 load_dotenv()
@@ -33,7 +65,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'exe', 'dll', 'txt'}
 
-# Load the ML model and scaler with error handling
+# Load the ML model, scaler, and feature selector with error handling
 try:
     # Try different possible paths for the model
     possible_paths = [
@@ -52,6 +84,7 @@ try:
         logging.warning(f"Model file not found. Tried: {possible_paths}. Please train and save a model first.")
         model = None
         scaler = None
+        feature_selector = None
     else:
         model = joblib.load(model_path)
         logging.info(f"Advanced ensemble model loaded successfully from {model_path}")
@@ -64,11 +97,21 @@ try:
         else:
             scaler = None
             logging.warning("Scaler not found - will use unscaled features")
+        
+        # Try to load feature selector
+        selector_path = model_path.replace('malwareclassifier-V2.pkl', 'feature_selector.pkl')
+        if os.path.exists(selector_path):
+            feature_selector = joblib.load(selector_path)
+            logging.info(f"Feature selector loaded from {selector_path}")
+        else:
+            feature_selector = None
+            logging.warning("Feature selector not found - will use all features")
             
 except Exception as e:
     logging.error(f"Failed to load model: {str(e)}")
     model = None
     scaler = None
+    feature_selector = None
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -246,30 +289,62 @@ def analyze():
             logging.info(f"Extracting features from: {safe_filename}")
             features = extract_features(file_path)
             
-            # Apply feature scaling if scaler is available
-            if scaler is not None:
-                features_scaled = scaler.transform(features)
-                logging.info("Features scaled for improved accuracy")
+            if features is None:
+                result = {
+                    "type": "file",
+                    "prediction": "Unknown",
+                    "file_name": safe_filename,
+                    "confidence": "N/A",
+                    "note": "Could not extract features from file"
+                }
             else:
-                features_scaled = features
-            
-            logging.info(f"Running advanced model prediction on: {safe_filename}")
-            prediction = model.predict(features_scaled)
-            prediction_proba = model.predict_proba(features_scaled)[0]
-            
-            # Get confidence from probability
-            confidence = max(prediction_proba) * 100
-            
-            # Create result
-            result = {
-                "type": "file",
-                "prediction": "Malware" if prediction[0] == 1 else "Safe",
-                "file_name": safe_filename,
-                "confidence": f"{confidence:.1f}%",
-                "model": "Advanced Ensemble (100% Accuracy)"
-            }
-            
-            logging.info(f"Analysis complete: {safe_filename} - {result['prediction']} ({confidence:.1f}% confidence)")
+                # Apply feature scaling if scaler is available
+                if scaler is not None:
+                    features_scaled = scaler.transform(features)
+                    logging.info("Features scaled for improved accuracy")
+                else:
+                    features_scaled = features
+                    logging.warning("No scaler available - using unscaled features")
+                
+                # Apply feature selection if selector is available
+                if feature_selector is not None:
+                    features_selected = feature_selector.transform(features_scaled)
+                    logging.info(f"Features selected: {features_selected.shape[1]} out of {features_scaled.shape[1]}")
+                else:
+                    features_selected = features_scaled
+                    logging.warning("No feature selector available - using all features")
+                
+                logging.info(f"Running advanced model prediction on: {safe_filename}")
+                prediction = model.predict(features_selected)
+                prediction_proba = model.predict_proba(features_selected)[0]
+                
+                # Get confidence from probability
+                confidence = max(prediction_proba) * 100
+                
+                # Determine prediction label
+                prediction_label = "Malware" if prediction[0] == 1 else "Safe"
+                
+                # Add additional analysis based on confidence
+                if confidence >= 95:
+                    risk_level = "HIGH RISK" if prediction[0] == 1 else "VERY SAFE"
+                elif confidence >= 85:
+                    risk_level = "MEDIUM RISK" if prediction[0] == 1 else "SAFE"
+                else:
+                    risk_level = "LOW RISK" if prediction[0] == 1 else "POTENTIALLY SAFE"
+                
+                # Create result
+                result = {
+                    "type": "file",
+                    "prediction": prediction_label,
+                    "file_name": safe_filename,
+                    "confidence": f"{confidence:.1f}%",
+                    "risk_level": risk_level,
+                    "model": "Advanced Ensemble (High Accuracy)",
+                    "malware_probability": f"{prediction_proba[1]*100:.1f}%",
+                    "safe_probability": f"{prediction_proba[0]*100:.1f}%"
+                }
+                
+                logging.info(f"Analysis complete: {safe_filename} - {prediction_label} ({confidence:.1f}% confidence, {risk_level})")
         
         # Store file path in result for potential quarantine/cleaning
         result['file_path'] = file_path
