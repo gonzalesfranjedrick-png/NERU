@@ -1,0 +1,9 @@
+This is a test text file for NeuroShield analysis.
+
+It contains normal text content for testing purposes.
+
+Created by: F.J.G
+Project: NeuroShield - Malware Detection with Machine Learning
+Date: October 8, 2025
+
+This file should be classified as Safe because it doesn't contain suspicious keywords.

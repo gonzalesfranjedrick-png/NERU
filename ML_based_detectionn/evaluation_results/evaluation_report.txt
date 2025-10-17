@@ -1,0 +1,55 @@
+================================================================================
+NeuroShield - Advanced Model Evaluation Report
+================================================================================
+
+Report Generated: 2025-10-09 22:06:50
+Developer: F.J.G
+Project: NeuroShield - Malware Detection with Machine Learning
+
+================================================================================
+OVERALL PERFORMANCE METRICS
+================================================================================
+
+Accuracy:           1.0000 (100.00%)
+Precision:          1.0000 (100.00%)
+Recall (Detection): 1.0000 (100.00%)
+F1-Score:           1.0000
+AUC-ROC:            1.0000
+
+================================================================================
+DETECTION & ERROR RATES
+================================================================================
+
+Detection Rate:        1.0000 (100.00%)
+False Positive Rate:   0.0000 (0.00%)
+False Negative Rate:   0.0000 (0.00%)
+Specificity:           1.0000 (100.00%)
+
+================================================================================
+CONFUSION MATRIX
+================================================================================
+
+True Positives  (TP): 150
+True Negatives  (TN): 150
+False Positives (FP): 0
+False Negatives (FN): 0
+
+Total Malware Samples: 150
+Total Benign Samples:  150
+Total Test Samples:    300
+
+================================================================================
+INTERPRETATION
+================================================================================
+
+✓ Detection Rate: 100.00% of malware was correctly detected
+✓ FP Rate: 0.00% of benign files were incorrectly flagged
+✓ 0 benign files out of 150 were false positives
+✓ 0 malware samples out of 150 were missed
+
+★ EXCELLENT: Detection rate >= 99% - Competitive with top AVs
+★ EXCELLENT: FP rate <= 1% - Very low false alarms
+
+================================================================================
+END OF REPORT
+================================================================================

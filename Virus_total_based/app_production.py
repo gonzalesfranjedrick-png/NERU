@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Production-ready NeuroShield Threat Intelligence API with rate limiting
-""
+"""
 import os
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, flash, redirect, url_for
@@ -62,9 +62,14 @@ recent_results = []
 def index():
     return render_template('index.html', recent_results=recent_results)
 
-@app.route('/analyze', methods=['POST'])
+@app.route('/analyze', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")  # Strict rate limit for NeuroShield API
 def analyze():
+    # Redirect GET requests to home page
+    if request.method == 'GET':
+        flash('Please use the form to submit your analysis.', 'info')
+        return redirect(url_for('index'))
+    
     if not API_KEY or API_KEY == 'your-api-key-here-replace-this':
         flash('NeuroShield API key not configured. Please set NEUROSHIELD_API_KEY in .env file', 'error')
         return redirect(url_for('index'))

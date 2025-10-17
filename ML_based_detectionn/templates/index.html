@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="NeuroShield - Malware Detection with the use of Machine Learning. Developed by F.J.G">
     <meta name="author" content="F.J.G">
-    <title>NeuroShield - AI-Powered Malware Detection</title>
+    <title>NeuroShield - Threat Intelligence Malware Detector</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -17,9 +17,17 @@
             transition: background-color 0.3s, color 0.3s;
             padding: 100px;
         }
-        body.dark-mode {
-            background-color: #001637;
-            color: #f8f9fa;
+        /* Add blue header */
+        .header {
+            background-color: #0066cc;
+            color: white;
+            padding: 1rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .bash-output {
             background-color: #000;
@@ -93,7 +101,7 @@
             margin: auto;
         }
         header {
-            background-color: #02102b;
+            background-color: #0066cc;
             color: #fff;
             padding: 20px 0;
             text-align: center;
@@ -102,6 +110,7 @@
             top: 0;
             left: 0;
             z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         header h1 {
             margin-bottom: 10px;
@@ -120,7 +129,7 @@
 </head>
 <body>
     <header>
-        <h1>NeuroShield - AI Malware Detection</h1>
+        <h1>NeuroShield - Threat Intelligence Malware Detector</h1>
         <nav>
             <a href="/">Home</a>
             <a href="#">Dynamic Analysis</a>
@@ -131,10 +140,7 @@
 <div class="container mt-5">
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center">
-        <h1 class="text-center">NeuroShield</h1>
-        <button id="toggleDarkMode" class="btn btn-secondary">
-            <i class="fas fa-moon"></i>
-        </button>
+        <h1 class="text-center">Malware Analysis Tool</h1>
     </div>
 
     <!-- Messages -->
@@ -148,33 +154,41 @@
         {% endif %}
     {% endwith %}
 
-    <div class="row">
+    <div class="row justify-content-center">
         <!-- File Upload and Analysis Form -->
-        <div class="col-md-6">
+        <div class="col-md-8 col-lg-6">
             <form id="analysisForm" action="/analyze" method="post" enctype="multipart/form-data" class="mb-4">
-                <div class="file-upload">
-                    <label for="file" class="form-label">File Upload</label>
+                <div class="file-upload shadow-sm">
+                    <label for="file" class="form-label h5 mb-3">Scan Files for Malware</label>
                     <div class="square-upload">
-                        <span class="drag-drop-text">Drag and drop a file here or click to upload</span>
-                        <input type="file" class="form-control-file" name="file" id="file">
+                        <span class="drag-drop-text">
+                            <i class="fas fa-cloud-upload-alt fa-3x mb-3"></i><br>
+                            Drag and drop files here<br>
+                            <small class="text-muted">or click to select</small>
+                        </span>
+                        <input type="file" class="form-control-file" name="file" id="file" multiple>
                     </div>
-                    <small id="filePreview" class="form-text text-muted"></small> <!-- File preview text -->
+                    <small id="filePreview" class="form-text text-muted mt-2"></small>
+                    <div class="mt-3">
+                        <span class="badge bg-secondary me-2">EXE</span>
+                        <span class="badge bg-secondary me-2">DLL</span>
+                        <span class="badge bg-secondary me-2">PDF</span>
+                        <span class="badge bg-secondary me-2">ZIP</span>
+                        <span class="badge bg-secondary">More...</span>
+                    </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100" style="background-color: #ff5733; color: #fff;"><b>Analyze</b></button>
-                <div class="loading-spinner text-center mt-3">
-                    <div class="spinner-border" role="status">
-                        <span class="visually-hidden">Loading...</span>
+                <button type="submit" class="btn btn-primary w-100 mt-4" style="background-color: #0066cc; border: none;">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    <b>Analyze & Protect</b>
+                </button>
+                <div class="loading-spinner text-center mt-3" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Analyzing...</span>
                     </div>
+                    <p class="mt-2 text-muted">Deep scanning for polymorphic malware...</p>
                 </div>
             </form>
-        </div>
-
-        <!-- Bash-like output simulation -->
-        <div class="col-md-6">
-            <div id="bash-output" class="bash-output">
-                <p>[INFO] Waiting for file input...</p>
-            </div>
         </div>
     </div>
 
@@ -192,20 +206,52 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            <p><strong>Date:</strong> {{ result.scan_date }}</p>
-                            <p><strong>Detections:</strong> {{ result.positives }}/{{ result.total }}</p>
-                            <h5>Detections:</h5>
-                            <ul>
-                                {% for detection in result.detections %}
-                                    <li><strong>{{ detection.engine }}</strong>: {{ detection.result }} (Version: {{ detection.version }}, Update: {{ detection.update }})</li>
-                                {% endfor %}
-                                {% if result.positives > 0 %}
-                                    <span style="color: red;"><strong><h2><b>Malware</b></h2></strong></span>
-                                {% else %}
-                                    <span style="color: green;"><strong><h2><b>Benign</b></h2></strong></span>
-                                {% endif %}
-                            </ul>
+                            <div class="card mb-4">
+                                <div class="card-body">
+                                    <h5 class="card-title mb-3">Analysis Results</h5>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong>Detection Engine:</strong> {{ result.model }}</p>
+                                            <p><strong>Analysis Date:</strong> {{ result.scan_date }}</p>
+                                            <p>
+                                                <strong>Verdict:</strong>
+                                                <span class="badge {% if result.prediction == 'Malware' %}bg-danger{% else %}bg-success{% endif %} fs-6">
+                                                    {{ result.prediction }}
+                                                </span>
+                                            </p>
+                                            <p><strong>Confidence:</strong> {{ result.confidence }}</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            {% if result.polymorphic_analysis %}
+                                            <div class="alert {% if result.polymorphic_analysis.is_polymorphic %}alert-danger{% else %}alert-success{% endif %}">
+                                                <h6 class="alert-heading">Polymorphic Analysis</h6>
+                                                <p class="mb-1">Risk Score: {{ result.polymorphic_analysis.risk_score }}</p>
+                                                {% if result.polymorphic_analysis.indicators %}
+                                                <small>
+                                                    <ul class="mb-0">
+                                                    {% for indicator in result.polymorphic_analysis.indicators %}
+                                                        <li>{{ indicator }}</li>
+                                                    {% endfor %}
+                                                    </ul>
+                                                </small>
+                                                {% endif %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <canvas id="modalDetectionChart{{ loop.index }}" style="width: 400px; height: 400px;"></canvas> <!-- Reduced canvas size for modal -->
+                            
+                            <!-- Action buttons -->
+                            <div class="mt-4">
+                                <button onclick="quarantineFile('{{ result.file_path }}')" class="btn btn-warning">
+                                    <i class="fas fa-shield-alt"></i> Quarantine
+                                </button>
+                                <button onclick="deleteFile('{{ result.file_path }}')" class="btn btn-danger">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -216,18 +262,58 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Toggle dark mode
-    const toggleDarkModeBtn = document.getElementById('toggleDarkMode');
-    const body = document.body;
-    function toggleDarkMode() {
-        body.classList.toggle('dark-mode');
-        localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
-        toggleDarkModeBtn.innerHTML = body.classList.contains('dark-mode') ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    // File actions
+    async function quarantineFile(filePath) {
+        try {
+            const response = await fetch('/quarantine', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    file_path: filePath
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                alert('File quarantined successfully');
+                location.reload();
+            } else {
+                alert('Error quarantining file: ' + data.message);
+            }
+        } catch (error) {
+            alert('Error quarantining file: ' + error);
+        }
     }
-    if (localStorage.getItem('theme') === 'dark') {
-        body.classList.add('dark-mode');
+
+    async function deleteFile(filePath) {
+        if (!confirm('Are you sure you want to delete this file?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/delete_file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    file_path: filePath
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                alert('File deleted successfully');
+                location.reload();
+            } else {
+                alert('Error deleting file: ' + data.message);
+            }
+        } catch (error) {
+            alert('Error deleting file: ' + error);
+        }
     }
-    toggleDarkModeBtn.addEventListener('click', toggleDarkMode);
 
     // Display file name on file selection
     const fileInput = document.getElementById('file');
