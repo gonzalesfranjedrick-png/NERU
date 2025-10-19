@@ -1,0 +1,5 @@
+# patterns.txt
+# Add hex-encoded byte patterns for known malware signatures, one per line.
+# Example: 4D5A9000 (MZ header for PE files, just as a placeholder)
+4D5A9000
+E8030000

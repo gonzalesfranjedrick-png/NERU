@@ -1,0 +1,96 @@
+name: ML Detection Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9]
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r ML_based_detectionn/requirements.txt
+        pip install pytest pytest-cov flake8 mypy black
+        
+    - name: Run linting
+      run: |
+        flake8 ML_based_detectionn/
+        black --check ML_based_detectionn/
+        mypy ML_based_detectionn/
+        
+    - name: Run tests with coverage
+      run: |
+        pytest ML_based_detectionn/tests/ --cov=ML_based_detectionn --cov-report=xml
+        
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: true
+        
+  benchmark:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        pip install -r ML_based_detectionn/requirements.txt
+        
+    - name: Run benchmarks
+      run: |
+        python ML_based_detectionn/benchmark_system.py --ci-mode
+        
+    - name: Store benchmark results
+      uses: actions/upload-artifact@v2
+      with:
+        name: benchmark-results
+        path: ML_based_detectionn/benchmark_results/
+
+  model-validation:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        pip install -r ML_based_detectionn/requirements.txt
+        
+    - name: Validate model performance
+      run: |
+        python ML_based_detectionn/train_advanced_model.py --validate
+        
+    - name: Store validation results
+      uses: actions/upload-artifact@v2
+      with:
+        name: model-validation
+        path: ML_based_detectionn/ML_model/validation_results/
