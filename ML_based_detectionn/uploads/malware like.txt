@@ -1,0 +1,9 @@
+# dummy_malware_sim.py
+import base64
+def payload():
+    data = "X5O!P%@AP"  # mimic signature
+    encoded = base64.b64encode(data.encode())
+    return encoded
+
+if __name__ == "__main__":
+    payload()

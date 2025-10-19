@@ -10,6 +10,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import joblib
 from feature_extraction import extract_features
+from layered_ensemble import LayeredEnsembleDetector
 
 # Load environment variables
 load_dotenv()
@@ -199,9 +200,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'exe', 'dll', 'txt', 'pdf'}
 
-# Load the ML model with error handling
+
+# Load the ML model and initialize the multi-layer detector
 try:
-    # Support multiple relative locations
     possible_paths = [
         os.path.join('ML_model', 'malwareclassifier-V2.pkl'),
         os.path.join(os.path.dirname(__file__), 'ML_model', 'malwareclassifier-V2.pkl')
@@ -211,18 +212,20 @@ try:
         logging.warning(f"Model file not found. Tried: {possible_paths}. Please train and save a model first.")
         model = None
         scaler = None
+        ensemble = LayeredEnsembleDetector()
     else:
         model = joblib.load(model_path)
         logging.info(f"Model loaded successfully from {model_path}")
-        # Load scaler if present
         scaler_path = model_path.replace('malwareclassifier-V2.pkl', 'scaler.pkl')
         scaler = joblib.load(scaler_path) if os.path.exists(scaler_path) else None
         if scaler is None:
             logging.warning("Scaler not found - using unscaled features")
+        ensemble = LayeredEnsembleDetector(model_path=model_path)
 except Exception as e:
     logging.error(f"Failed to load model: {str(e)}")
     model = None
     scaler = None
+    ensemble = LayeredEnsembleDetector()
 
 # Initialize helpers
 quarantine_manager = QuarantineManager()
@@ -264,27 +267,24 @@ def analyze():
         file_ext = file.filename.rsplit('.', 1)[1].lower()
 
         if file_ext in {'exe', 'dll'}:
-            if model is None:
-                return render_template('index.html', error="Model not loaded. Please contact administrator.")
             try:
-                features = extract_features(file_path)
-                # Align to expected feature order
-                if hasattr(model, 'feature_names_in_'):
-                    features = features.reindex(columns=list(model.feature_names_in_), fill_value=0)
-                # Scale if scaler present
-                features_scaled = scaler.transform(features) if scaler is not None else features
-                prediction = model.predict(features_scaled)
-                proba = model.predict_proba(features_scaled)[0]
-                confidence = (proba[1] if int(prediction[0]) == 1 else proba[0]) * 100
+                # Read file data for entropy/compression/ML
+                with open(file_path, 'rb') as f:
+                    data = f.read()
+                # For demo, pe_sections is set to 5 (could be extracted with pefile)
+                pe_sections = 5
+                # Use the new multi-layer ensemble detector
+                score = ensemble.score(file_path, data, pe_sections, log=True)
+                is_malware = score >= ensemble.threshold
                 result = {
                     "type": "file",
-                    "prediction": "Malware" if int(prediction[0]) == 1 else "Safe",
+                    "prediction": "Malware" if is_malware else "Safe",
                     "file_name": file.filename,
-                    "confidence": f"{confidence:.1f}%"
+                    "confidence": f"{score*100:.1f}% (multi-layer)"
                 }
-                logging.info(f"Analysis completed: {file.filename} - {result['prediction']} ({confidence:.1f}%)")
+                logging.info(f"Multi-layer analysis: {file.filename} - {result['prediction']} (score={score:.2f})")
             except Exception as e:
-                logging.error(f"Error during prediction: {str(e)}")
+                logging.error(f"Error during multi-layer analysis: {str(e)}")
                 return render_template('index.html', error=f"Error analyzing file: {str(e)}")
 
         elif file_ext == 'txt':

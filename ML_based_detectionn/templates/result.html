@@ -87,14 +87,37 @@
     <div class="mt-4">
         {% if result.type == "file" %}
             {% if result.prediction == "Malware" %}
-                <div class="alert alert-danger text-center" role="alert">
-                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
-                    <h3>⚠️ MALWARE DETECTED!</h3>
-                    <p class="mb-0"><strong>File:</strong> {{ result.file_name }}</p>
-                    <p class="mb-0"><strong>Threat Type:</strong> {{ result.prediction }}</p>
-                    <p class="mb-0"><strong>Confidence:</strong> {{ result.confidence }}</p>
-                    <p class="mt-2"><strong>⚠️ This file is dangerous and should be handled immediately!</strong></p>
-                </div>
+
+                                <div class="alert alert-danger text-center" role="alert" style="border: 3px solid #f5365c; box-shadow: 0 0 20px #f5365c; animation: shake 0.5s;">
+                                        <div style="font-size: 4rem; animation: pulse 1s infinite alternate;">
+                                                <i class="fas fa-biohazard" style="color:#f5365c;"></i>
+                                        </div>
+                                        <h2 style="color:#f5365c; font-weight:bold;">⚠️ MALWARE DETECTED!</h2>
+                                        <p class="mb-0"><strong>File:</strong> {{ result.file_name }}</p>
+                                        <p class="mb-0"><strong>Threat Type:</strong> {{ result.prediction }}</p>
+                                        <p class="mb-0"><strong>Confidence:</strong> {{ result.confidence }}</p>
+                                        <p class="mt-3" style="font-size:1.2rem; color:#b30000;"><strong>Immediate Action Required:</strong></p>
+                                        <ul class="text-start" style="max-width:500px; margin:0 auto;">
+                                                <li>Do <strong>not</strong> open or run this file.</li>
+                                                <li>Quarantine or delete the file using the options below.</li>
+                                                <li>Disconnect from the internet if you suspect active infection.</li>
+                                                <li>Consult your IT/security team if this is a work device.</li>
+                                        </ul>
+                                        <p class="mt-2"><strong>⚠️ This file is dangerous and should be handled immediately!</strong></p>
+                                </div>
+                                <style>
+                                @keyframes shake {
+                                    0% { transform: translateX(0); }
+                                    25% { transform: translateX(-5px); }
+                                    50% { transform: translateX(5px); }
+                                    75% { transform: translateX(-5px); }
+                                    100% { transform: translateX(0); }
+                                }
+                                @keyframes pulse {
+                                    0% { text-shadow: 0 0 10px #f5365c; }
+                                    100% { text-shadow: 0 0 30px #f5365c; }
+                                }
+                                </style>
 
                 <!-- Action Buttons for Malware -->
                 <div class="card mt-4">
